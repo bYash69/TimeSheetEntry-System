@@ -50,8 +50,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'timesheet_project.wsgi.application'
 
-import dj_database_url
-from decouple import config
+
 
 DATABASE_URL = config('DATABASE_URL', default=None)
 
