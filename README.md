@@ -1,4 +1,4 @@
-# BMK Timesheet — Django + DRF
+#  Timesheet — Django + DRF
 
 ## Setup
 
