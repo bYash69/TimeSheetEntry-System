@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Time-Track{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #22263a;
+      --border: #2e3350;
+      --accent: #4f8ef7;
+      --accent2: #f7c94f;
+      --green: #3dd68c;
+      --red: #f75f5f;
+      --yellow: #f7c94f;
+      --text: #e8eaf0;
+      --muted: #7b80a0;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+    /* NAV */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0;
+      height: 56px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand {
+      font-family: var(--mono);
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 1rem;
+      letter-spacing: 0.04em;
+      margin-right: 2rem;
+      text-decoration: none;
+    }
+    .nav-brand span { color: var(--accent2); }
+    .nav-links { display: flex; gap: 0; }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      padding: 0 1.2rem;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      font-size: 0.88rem;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-links a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* LAYOUT */
+    .container { max-width: 1400px; margin: 0 auto; padding: 2rem; }
+
+    /* CARDS */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.2rem;
+    }
+    .card-title {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* STAT CARDS */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem 1.5rem;
+    }
+    .stat-label { font-size: 0.75rem; color: var(--muted); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.5rem; }
+    .stat-value { font-size: 2rem; font-weight: 600; color: var(--text); font-family: var(--mono); }
+    .stat-value.accent { color: var(--accent); }
+    .stat-value.green { color: var(--green); }
+    .stat-value.yellow { color: var(--yellow); }
+
+    /* TABLES */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th {
+      font-family: var(--mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.6rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    td { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface2); }
+
+    /* BADGES */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-family: var(--mono);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+    .badge-green { background: rgba(61,214,140,0.15); color: var(--green); }
+    .badge-red { background: rgba(247,95,95,0.15); color: var(--red); }
+    .badge-yellow { background: rgba(247,201,79,0.15); color: var(--yellow); }
+    .badge-blue { background: rgba(79,142,247,0.15); color: var(--accent); }
+    .badge-gray { background: var(--surface2); color: var(--muted); }
+
+    /* BUTTONS */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      text-decoration: none;
+      transition: opacity 0.15s, transform 0.1s;
+      font-family: var(--sans);
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-danger { background: var(--red); color: #fff; }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-success { background: var(--green); color: #0f1117; }
+    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.78rem; }
+
+    /* FORMS */
+    .form-group { margin-bottom: 1rem; }
+    label { display: block; font-size: 0.78rem; font-family: var(--mono); color: var(--muted); margin-bottom: 0.4rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    input[type=text], input[type=date], input[type=number], select, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.55rem 0.8rem;
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 80px; }
+    .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; }
+
+    /* MODAL */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 640px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal-title { font-family: var(--mono); font-size: 0.9rem; font-weight: 600; color: var(--accent); margin-bottom: 1.5rem; letter-spacing: 0.06em; }
+
+    /* PROJECT HOURS ROW */
+    .project-hour-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem; }
+    .project-hour-row input[type=number] { width: 80px; flex-shrink: 0; }
+    .project-hour-row select { flex: 1; }
+
+    /* ALERTS */
+    .alert { padding: 0.8rem 1rem; border-radius: 6px; font-size: 0.875rem; margin-bottom: 1rem; }
+    .alert-success { background: rgba(61,214,140,0.1); border: 1px solid rgba(61,214,140,0.3); color: var(--green); }
+    .alert-error { background: rgba(247,95,95,0.1); border: 1px solid rgba(247,95,95,0.3); color: var(--red); }
+
+    /* PAGE HEADER */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    .page-title { font-size: 1.3rem; font-weight: 600; }
+    .page-sub { font-size: 0.82rem; color: var(--muted); margin-top: 0.2rem; font-family: var(--mono); }
+
+    /* STATUS dot */
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .dot-green { background: var(--green); }
+    .dot-red { background: var(--red); }
+    .dot-yellow { background: var(--yellow); }
+
+    #toast {
+      position: fixed; bottom: 2rem; right: 2rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.8rem 1.2rem;
+      font-size: 0.85rem;
+      z-index: 999;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { border-color: var(--green); color: var(--green); }
+    #toast.error { border-color: var(--red); color: var(--red); }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+  <nav>
+    <a class="nav-brand" href="/">BMK<span>.</span>TIME</a>
+    <div class="nav-links">
+      {% if request.user.is_superuser %}
+        <a href="/" {% if request.resolver_match.url_name == 'dashboard' %}class="active"{% endif %}>Dashboard</a>
+        <a href="/timesheet/" {% if request.resolver_match.url_name == 'timesheet' %}class="active"{% endif %}>All Timesheets</a>
+        <a href="/projects/" {% if request.resolver_match.url_name == 'projects' %}class="active"{% endif %}>Projects</a>
+        <a href="/employees/" {% if request.resolver_match.url_name == 'employees' %}class="active"{% endif %}>Employees</a>
+        <a href="/roles/" {% if request.resolver_match.url_name == 'role_management' %}class="active"{% endif %}>Roles</a>
+        <a href="/export/" {% if request.resolver_match.url_name == 'export' %}class="active"{% endif %}>Export</a>
+      {% else %}
+        <a href="/my-timesheet/" {% if request.resolver_match.url_name == 'my_timesheet' %}class="active"{% endif %}>My Daily Sheet</a>
+      {% endif %}
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:1rem">
+      <span style="font-size:0.78rem;color:var(--muted);font-family:var(--mono)">{{ request.user.username }}</span>
+      <a href="/logout/" style="font-size:0.8rem;color:var(--muted);text-decoration:none;padding:0.3rem 0.8rem;border:1px solid var(--border);border-radius:5px;transition:color 0.15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--muted)'">Logout</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+    function showToast(msg, type='success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'show ' + type;
+      setTimeout(() => t.className = '', 3000);
+    }
+
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    // Close modal on overlay click
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+    });
+  </script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

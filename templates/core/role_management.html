@@ -1,0 +1,561 @@
+{% extends 'core/base.html' %}
+{% block title %}Role Management — Timesheet{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <div class="page-title">Role Management</div>
+    <div class="page-sub">
+      Assign projects to employees — they will only see their assigned projects
+    </div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+
+  <!-- LEFT SECTION -->
+  <div class="card">
+
+    <div class="card-header">
+      <div class="card-title">Employees & Assigned Projects</div>
+
+      <span
+        id="empCount"
+        style="
+          font-family:var(--mono);
+          font-size:0.75rem;
+          color:var(--muted)
+        "
+      ></span>
+    </div>
+
+    <!-- SEARCH -->
+    <div style="margin-bottom:1rem">
+
+      <input
+        type="text"
+        id="empSearch"
+        placeholder="Search employees..."
+        onkeyup="filterEmployeeCards()"
+        style="
+          width:100%;
+          padding:12px;
+          background:var(--bg);
+          border:1px solid var(--border);
+          border-radius:10px;
+          color:white;
+          font-size:14px;
+          outline:none;
+        "
+      >
+
+    </div>
+
+    <!-- EMPLOYEE LIST -->
+    <div
+      id="empList"
+      style="
+        display:flex;
+        flex-direction:column;
+        gap:0.8rem
+      "
+    >
+      <p style="color:var(--muted);font-size:0.875rem">
+        Loading…
+      </p>
+    </div>
+
+  </div>
+
+  <!-- RIGHT SECTION -->
+  <div class="card" style="position:sticky;top:72px">
+
+    <div class="card-header">
+      <div class="card-title">Assign Project</div>
+    </div>
+
+    <!-- SEARCHABLE DROPDOWN -->
+    <div class="form-group">
+
+      <label>Select Employee *</label>
+
+      <div style="position:relative;width:100%">
+
+        <!-- INPUT -->
+        <input
+          type="text"
+          id="selEmployeeInput"
+          placeholder="Search employee..."
+          autocomplete="off"
+          onkeyup="filterEmployeeDropdown()"
+          onclick="showEmployeeDropdown()"
+          style="
+            width:100%;
+            padding:12px;
+            background:var(--bg);
+            border:1px solid var(--border);
+            border-radius:10px;
+            color:white;
+            font-size:14px;
+            outline:none;
+            box-sizing:border-box;
+          "
+        >
+
+        <!-- DROPDOWN -->
+        <div
+          id="employeeDropdown"
+          style="
+            position:absolute;
+            top:100%;
+            left:0;
+            width:100%;
+            background:#151821;
+            border:1px solid var(--border);
+            border-top:none;
+            border-radius:0 0 10px 10px;
+            max-height:220px;
+            overflow-y:auto;
+            display:none;
+            z-index:999;
+            box-sizing:border-box;
+          "
+        >
+
+          {% for emp in employees %}
+
+          <div
+            class="employee-option"
+            data-id="{{ emp.id }}"
+            data-name="{{ emp.name }}"
+            onclick="selectEmployee(this)"
+            style="
+              padding:12px;
+              cursor:pointer;
+              transition:0.2s;
+              font-size:14px;
+              color:white;
+            "
+            onmouseover="
+              this.style.background='rgba(79,142,247,0.15)'
+            "
+            onmouseout="
+              this.style.background='transparent'
+            "
+          >
+            {{ emp.name }}
+          </div>
+
+          {% endfor %}
+
+        </div>
+
+      </div>
+
+      <input type="hidden" id="selEmployee">
+
+    </div>
+
+    <!-- PROJECT -->
+    <div class="form-group">
+
+      <label>Select Project *</label>
+
+      <select id="selProject">
+
+        <option value="">Choose project…</option>
+
+        {% for p in projects %}
+          <option value="{{ p.id }}">
+            {{ p.code }} — {{ p.name }}
+          </option>
+        {% endfor %}
+
+      </select>
+
+    </div>
+
+    <!-- BUTTON -->
+    <button
+      class="btn btn-primary"
+      style="width:100%;justify-content:center"
+      onclick="assignProject()"
+    >
+      + Assign Project
+    </button>
+
+    <!-- ASSIGNMENTS -->
+    <div
+      id="currentAssignments"
+      style="
+        margin-top:1.5rem;
+        display:none
+      "
+    >
+
+      <div
+        style="
+          font-family:var(--mono);
+          font-size:0.7rem;
+          color:var(--muted);
+          text-transform:uppercase;
+          letter-spacing:0.1em;
+          margin-bottom:0.8rem
+        "
+      >
+        Current Assignments
+      </div>
+
+      <div id="assignmentList"></div>
+
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+
+<script>
+
+function getCookie(name) {
+
+  let v = null;
+
+  document.cookie.split(';').forEach(c => {
+
+    c = c.trim();
+
+    if (c.startsWith(name + '=')) {
+      v = decodeURIComponent(c.slice(name.length + 1));
+    }
+  });
+
+  return v;
+}
+
+/* LEFT SEARCH */
+
+function filterEmployeeCards() {
+
+  const input =
+    document.getElementById('empSearch')
+      .value
+      .toLowerCase();
+
+  const cards =
+    document.querySelectorAll('.employee-card');
+
+  cards.forEach(card => {
+
+    const name = card.dataset.name;
+
+    if (name.includes(input)) {
+      card.style.display = "";
+    }
+    else {
+      card.style.display = "none";
+    }
+  });
+}
+
+/* RIGHT DROPDOWN */
+
+function showEmployeeDropdown() {
+
+  document.getElementById(
+    'employeeDropdown'
+  ).style.display = 'block';
+}
+
+function filterEmployeeDropdown() {
+
+  const input =
+    document.getElementById('selEmployeeInput')
+      .value
+      .toLowerCase();
+
+  const options =
+    document.querySelectorAll('.employee-option');
+
+  document.getElementById(
+    'employeeDropdown'
+  ).style.display = 'block';
+
+  options.forEach(option => {
+
+    const name =
+      option.dataset.name.toLowerCase();
+
+    if (name.includes(input)) {
+      option.style.display = "block";
+    }
+    else {
+      option.style.display = "none";
+    }
+  });
+}
+
+function selectEmployee(element) {
+
+  const id = element.dataset.id;
+  const name = element.dataset.name;
+
+  document.getElementById(
+    'selEmployee'
+  ).value = id;
+
+  document.getElementById(
+    'selEmployeeInput'
+  ).value = name;
+
+  document.getElementById(
+    'employeeDropdown'
+  ).style.display = 'none';
+
+  onEmployeeChange();
+}
+
+/* CLOSE DROPDOWN */
+
+document.addEventListener('click', function(e) {
+
+  const dropdown =
+    document.getElementById('employeeDropdown');
+
+  const input =
+    document.getElementById('selEmployeeInput');
+
+  if (
+    !dropdown.contains(e.target) &&
+    e.target !== input
+  ) {
+    dropdown.style.display = 'none';
+  }
+});
+
+async function loadEmployees() {
+
+  const res =
+    await fetch('/api/employees/?page_size=200');
+
+  const data = await res.json();
+
+  const emps = data.results || data;
+
+  document.getElementById('empCount').textContent =
+    `${emps.length} employees`;
+
+  const container =
+    document.getElementById('empList');
+
+  if (!emps.length) {
+
+    container.innerHTML =
+      '<p style="color:var(--muted);font-size:0.875rem">No active employees.</p>';
+
+    return;
+  }
+
+  container.innerHTML = emps.map(emp => {
+
+    const assigned =
+      emp.assigned_projects || [];
+
+    const badges = assigned.length
+      ? assigned.map(ap =>
+          `<span class="badge badge-blue" style="margin:2px">${ap.project_code}</span>`
+        ).join('')
+      : `<span style="color:var(--muted);font-size:0.78rem;font-style:italic">No projects assigned</span>`;
+
+    return `
+      <div
+        class="employee-card"
+        data-name="${emp.name.toLowerCase()}"
+        style="
+          background:var(--bg);
+          border:1px solid var(--border);
+          border-radius:8px;
+          padding:1rem;
+          transition:border-color 0.15s
+        "
+      >
+
+        <div
+          style="
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            margin-bottom:0.6rem
+          "
+        >
+
+          <div>
+
+            <span
+              style="
+                font-weight:600;
+                font-size:0.9rem
+              "
+            >
+              ${emp.name}
+            </span>
+
+            <span
+              class="badge ${emp.is_active ? 'badge-green' : 'badge-gray'}"
+              style="
+                margin-left:0.5rem;
+                font-size:0.7rem
+              "
+            >
+              ${emp.is_active ? 'Active' : 'Inactive'}
+            </span>
+
+          </div>
+
+        </div>
+
+        <div
+          style="
+            display:flex;
+            flex-wrap:wrap;
+            gap:4px
+          "
+        >
+          ${badges}
+        </div>
+
+      </div>
+    `;
+  }).join('');
+}
+
+async function onEmployeeChange() {
+
+  const empId =
+    document.getElementById('selEmployee').value;
+
+  const panel =
+    document.getElementById('currentAssignments');
+
+  const list =
+    document.getElementById('assignmentList');
+
+  if (!empId) {
+
+    panel.style.display = 'none';
+
+    return;
+  }
+
+  const res =
+    await fetch(`/api/assignments/by_employee/?employee=${empId}`);
+
+  const data = await res.json();
+
+  panel.style.display = 'block';
+
+  if (!data.length) {
+
+    list.innerHTML =
+      '<p style="color:var(--muted);font-size:0.82rem;font-style:italic">No projects assigned yet.</p>';
+
+    return;
+  }
+
+  list.innerHTML = data.map(ap => `
+    <div
+      style="
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        padding:0.5rem 0;
+        border-bottom:1px solid var(--border)
+      "
+    >
+
+      <span
+        style="
+          font-family:var(--mono);
+          font-size:0.85rem
+        "
+      >
+
+        <span style="color:var(--accent)">
+          ${ap.project_code}
+        </span>
+
+        <span
+          style="
+            color:var(--muted);
+            margin-left:0.5rem;
+            font-size:0.78rem
+          "
+        >
+          ${ap.project_name}
+        </span>
+
+      </span>
+
+    </div>
+  `).join('');
+}
+
+async function assignProject() {
+
+  const empId =
+    document.getElementById('selEmployee').value;
+
+  const projId =
+    document.getElementById('selProject').value;
+
+  if (!empId || !projId) {
+
+    showToast(
+      'Select both employee and project',
+      'error'
+    );
+
+    return;
+  }
+
+  const res =
+    await fetch('/api/assignments/assign/', {
+
+      method: 'POST',
+
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+
+      body: JSON.stringify({
+        employee: empId,
+        project: projId
+      })
+    });
+
+  if (res.ok) {
+
+    showToast('Assigned!');
+
+    onEmployeeChange();
+
+    loadEmployees();
+  }
+  else {
+
+    showToast(
+      'Already assigned or error',
+      'error'
+    );
+  }
+}
+
+loadEmployees();
+
+</script>
+
+{% endblock %}

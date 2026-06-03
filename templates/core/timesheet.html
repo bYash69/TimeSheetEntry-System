@@ -1,0 +1,344 @@
+{% extends 'core/base.html' %}
+{% block title %}Daily Sheet — Timesheet{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Daily Timesheet</div>
+    <div class="page-sub">Log daily entries per employee &amp; project</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('addModal')">+ New Entry</button>
+</div>
+
+<!-- Filters -->
+<div class="card" style="margin-bottom:1.5rem">
+  <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:flex-end">
+    <div class="form-group" style="margin:0;flex:1;min-width:140px">
+      <label>Filter by Date</label>
+      <input type="date" id="filterDate">
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:140px">
+      <label>Employee</label>
+      <select id="filterEmployee">
+        <option value="">All Employees</option>
+        {% for emp in employees %}
+          <option value="{{ emp.id }}">{{ emp.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group" style="margin:0;flex:1;min-width:120px">
+      <label>Month</label>
+      <input type="month" id="filterMonth">
+    </div>
+    <button class="btn btn-ghost" onclick="loadEntries()">Apply</button>
+    <button class="btn btn-ghost" onclick="clearFilters()">Clear</button>
+  </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Entries</div>
+    <span id="entryCount" style="font-family:var(--mono);font-size:0.78rem;color:var(--muted)"></span>
+  </div>
+  <div class="table-wrap">
+    <table id="entriesTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Wk</th>
+          <th>Employee</th>
+          <th>Status</th>
+          <th>Task Description</th>
+          <th>Total Hrs</th>
+          {% for p in projects %}<th>{{ p.code }}</th>{% endfor %}
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="entriesBody">
+        <tr><td colspan="20" style="text-align:center;color:var(--muted);padding:2rem">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-title">NEW ENTRY</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date *</label>
+        <input type="date" id="entryDate" required>
+      </div>
+      <div class="form-group">
+        <label>Employee *</label>
+        <select id="entryEmployee" required>
+          <option value="">Select…</option>
+          {% for emp in employees %}
+            <option value="{{ emp.id }}">{{ emp.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Status</label>
+        <select id="entryStatus">
+          <option value="present">Present</option>
+          <option value="holiday">Holiday</option>
+          <option value="leave">Leave</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Task Description</label>
+      <textarea id="entryTask" placeholder="Describe work done today…"></textarea>
+    </div>
+
+    <div style="margin-bottom:0.8rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem">
+        <label style="margin:0">Project Hours</label>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="addProjectRow()">+ Add Project</button>
+      </div>
+      <div id="projectHoursContainer"></div>
+    </div>
+
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1.2rem">
+      <button class="btn btn-ghost" onclick="closeModal('addModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveEntry()">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-title">EDIT ENTRY</div>
+    <input type="hidden" id="editId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date *</label>
+        <input type="date" id="editDate" required>
+      </div>
+      <div class="form-group">
+        <label>Employee *</label>
+        <select id="editEmployee" required>
+          <option value="">Select…</option>
+          {% for emp in employees %}
+            <option value="{{ emp.id }}">{{ emp.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Status</label>
+        <select id="editStatus">
+          <option value="present">Present</option>
+          <option value="holiday">Holiday</option>
+          <option value="leave">Leave</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Task Description</label>
+      <textarea id="editTask"></textarea>
+    </div>
+    <div style="margin-bottom:0.8rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem">
+        <label style="margin:0">Project Hours</label>
+        <button class="btn btn-ghost btn-sm" type="button" onclick="addEditProjectRow()">+ Add Project</button>
+      </div>
+      <div id="editProjectHoursContainer"></div>
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1.2rem">
+      <button class="btn btn-ghost" onclick="closeModal('editModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="updateEntry()">Update</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const PROJECTS = [{% for p in projects %}{"id":{{ p.id }},"code":"{{ p.code }}","name":"{{ p.name }}"}{% if not forloop.last %},{% endif %}{% endfor %}];
+const PROJECT_CODES = [{% for p in projects %}"{{ p.code }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+
+function getCookie(name) {
+  let v = null;
+  if (document.cookie && document.cookie !== '') {
+    document.cookie.split(';').forEach(c => {
+      c = c.trim();
+      if (c.startsWith(name + '=')) v = decodeURIComponent(c.slice(name.length + 1));
+    });
+  }
+  return v;
+}
+
+function projectSelect(selectedId='') {
+  return `<select style="flex:1">${PROJECTS.map(p =>
+    `<option value="${p.id}" ${p.id==selectedId?'selected':''}>${p.code} — ${p.name}</option>`
+  ).join('')}</select>`;
+}
+
+function addProjectRow(container='projectHoursContainer', projId='', hrs=0) {
+  const div = document.createElement('div');
+  div.className = 'project-hour-row';
+  div.innerHTML = `
+    ${projectSelect(projId)}
+    <input type="number" min="0" max="24" step="0.5" value="${hrs}" placeholder="Hrs" style="width:80px">
+    <button class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" type="button">✕</button>
+  `;
+  document.getElementById(container).appendChild(div);
+}
+
+function addEditProjectRow() { addProjectRow('editProjectHoursContainer'); }
+
+function collectProjectHours(containerId) {
+  const rows = document.getElementById(containerId).querySelectorAll('.project-hour-row');
+  const result = [];
+  rows.forEach(row => {
+    const proj = row.querySelector('select').value;
+    const hrs = parseFloat(row.querySelector('input[type=number]').value) || 0;
+    if (proj && hrs > 0) result.push({ project: parseInt(proj), hours: hrs });
+  });
+  return result;
+}
+
+async function saveEntry() {
+  const payload = {
+    date: document.getElementById('entryDate').value,
+    employee: parseInt(document.getElementById('entryEmployee').value),
+    status: document.getElementById('entryStatus').value,
+    task_description: document.getElementById('entryTask').value,
+    project_hours: collectProjectHours('projectHoursContainer'),
+  };
+  if (!payload.date || !payload.employee) { showToast('Date and Employee are required', 'error'); return; }
+
+  const res = await fetch('/api/entries/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+    body: JSON.stringify(payload)
+  });
+  if (res.ok) {
+    closeModal('addModal');
+    showToast('Entry saved!');
+    loadEntries();
+    document.getElementById('projectHoursContainer').innerHTML = '';
+    document.getElementById('entryDate').value = '';
+    document.getElementById('entryTask').value = '';
+  } else {
+    const err = await res.json();
+    showToast(JSON.stringify(err), 'error');
+  }
+}
+
+async function deleteEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  const res = await fetch(`/api/entries/${id}/`, {
+    method: 'DELETE',
+    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+  });
+  if (res.status === 204) { showToast('Deleted'); loadEntries(); }
+}
+
+async function editEntry(id) {
+  const res = await fetch(`/api/entries/${id}/`);
+  const d = await res.json();
+  document.getElementById('editId').value = d.id;
+  document.getElementById('editDate').value = d.date;
+  document.getElementById('editEmployee').value = d.employee;
+  document.getElementById('editStatus').value = d.status;
+  document.getElementById('editTask').value = d.task_description;
+  document.getElementById('editProjectHoursContainer').innerHTML = '';
+  d.project_hours.forEach(ph => addProjectRow('editProjectHoursContainer', ph.project, ph.hours));
+  openModal('editModal');
+}
+
+async function updateEntry() {
+  const id = document.getElementById('editId').value;
+  const payload = {
+    date: document.getElementById('editDate').value,
+    employee: parseInt(document.getElementById('editEmployee').value),
+    status: document.getElementById('editStatus').value,
+    task_description: document.getElementById('editTask').value,
+    project_hours: collectProjectHours('editProjectHoursContainer'),
+  };
+  const res = await fetch(`/api/entries/${id}/`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+    body: JSON.stringify(payload)
+  });
+  if (res.ok) { closeModal('editModal'); showToast('Updated!'); loadEntries(); }
+  else { const err = await res.json(); showToast(JSON.stringify(err), 'error'); }
+}
+
+function clearFilters() {
+  document.getElementById('filterDate').value = '';
+  document.getElementById('filterEmployee').value = '';
+  document.getElementById('filterMonth').value = '';
+  loadEntries();
+}
+
+function statusBadge(s) {
+  if (s === 'holiday') return '<span class="badge badge-yellow">Holiday</span>';
+  if (s === 'leave') return '<span class="badge badge-red">Leave</span>';
+  return '<span class="badge badge-green">Present</span>';
+}
+
+async function loadEntries() {
+  const params = new URLSearchParams();
+  const d = document.getElementById('filterDate').value;
+  const e = document.getElementById('filterEmployee').value;
+  const m = document.getElementById('filterMonth').value;
+  if (d) params.set('date', d);
+  if (e) params.set('employee', e);
+  if (m) {
+    const [yr, mo] = m.split('-');
+    params.set('year', yr);
+    params.set('month_number', parseInt(mo));
+  }
+  params.set('page_size', 200);
+
+  const res = await fetch(`/api/entries/?${params}`);
+  const data = await res.json();
+  const entries = data.results || data;
+
+  document.getElementById('entryCount').textContent = `${entries.length} entries`;
+
+  const tbody = document.getElementById('entriesBody');
+  if (!entries.length) {
+    tbody.innerHTML = '<tr><td colspan="20" style="text-align:center;color:var(--muted);padding:2rem">No entries found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = entries.map(e => {
+    const phMap = {};
+    e.project_hours.forEach(ph => phMap[ph.project] = ph.hours);
+    const projCells = PROJECTS.map(p => {
+      const h = phMap[p.id] || 0;
+      return `<td style="font-family:var(--mono);text-align:center">${h > 0 ? `<span style="color:var(--accent)">${h}</span>` : '<span style="color:var(--border)">—</span>'}</td>`;
+    }).join('');
+    return `<tr>
+      <td style="font-family:var(--mono);white-space:nowrap">${e.date}</td>
+      <td style="font-family:var(--mono);color:var(--muted)">W${e.week_number}</td>
+      <td>${e.employee_name}</td>
+      <td>${statusBadge(e.status)}</td>
+      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);font-size:0.8rem" title="${e.task_description}">${e.task_description || '—'}</td>
+      <td style="font-family:var(--mono);color:var(--green)">${e.total_hours}h</td>
+      ${projCells}
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick="editEntry(${e.id})">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEntry(${e.id})">Del</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// Set today's date as default
+document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+
+loadEntries();
+</script>
+{% endblock %}

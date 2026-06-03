@@ -1,0 +1,192 @@
+{% extends 'core/base.html' %}
+{% block title %}Export —TIME-TRACK{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Export Timesheet</div>
+    <div class="page-sub">Download monthly project data as Excel for client billing</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start">
+
+  <!-- Export form -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Generate Report</div>
+    </div>
+
+    <div class="form-group">
+      <label>Project *</label>
+      <select id="expProject">
+        <option value="">Select project…</option>
+        {% for p in projects %}
+          <option value="{{ p.id }}">{{ p.code }} — {{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Year *</label>
+        <select id="expYear"></select>
+      </div>
+      <div class="form-group">
+        <label>Month *</label>
+        <select id="expMonth">
+          <option value="1">January</option>
+          <option value="2">February</option>
+          <option value="3">March</option>
+          <option value="4">April</option>
+          <option value="5">May</option>
+          <option value="6">June</option>
+          <option value="7">July</option>
+          <option value="8">August</option>
+          <option value="9">September</option>
+          <option value="10">October</option>
+          <option value="11">November</option>
+          <option value="12">December</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Preview summary -->
+    <div id="previewBox" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:1rem;margin-bottom:1rem">
+      <div style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.8rem">Preview</div>
+      <div id="previewContent"></div>
+    </div>
+
+    <div style="display:flex;gap:0.8rem;margin-top:0.5rem">
+      <button class="btn btn-ghost" onclick="previewData()">Preview</button>
+      <button class="btn btn-success" onclick="exportExcel()">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm4.5 9.5v-7h-1v7h1zm3 0v-7h-1v7h1z"/></svg>
+        Download Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- Info card -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">What's included</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:0.8rem">
+      <div style="display:flex;gap:0.8rem;align-items:flex-start">
+        <span style="color:var(--accent);font-size:1.1rem;margin-top:1px">→</span>
+        <div>
+          <div style="font-weight:500;font-size:0.875rem">Date & Week Info</div>
+          <div style="color:var(--muted);font-size:0.8rem">Date, week number, and month for each entry</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.8rem;align-items:flex-start">
+        <span style="color:var(--green);font-size:1.1rem;margin-top:1px">→</span>
+        <div>
+          <div style="font-weight:500;font-size:0.875rem">Employee & Task</div>
+          <div style="color:var(--muted);font-size:0.8rem">Team member name and full task description</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.8rem;align-items:flex-start">
+        <span style="color:var(--yellow);font-size:1.1rem;margin-top:1px">→</span>
+        <div>
+          <div style="font-weight:500;font-size:0.875rem">Hours Breakdown</div>
+          <div style="color:var(--muted);font-size:0.8rem">Hours per day with a total at the bottom</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.8rem;align-items:flex-start">
+        <span style="color:var(--red);font-size:1.1rem;margin-top:1px">→</span>
+        <div>
+          <div style="font-weight:500;font-size:0.875rem">Only billable entries</div>
+          <div style="color:var(--muted);font-size:0.8rem">Rows with 0 hours on this project are excluded</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--border)">
+      <div style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:0.08em">File format</div>
+      <span class="badge badge-green" style="font-size:0.8rem">.xlsx — Excel compatible</span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Populate year dropdown (last 3 years + next year)
+const yearSel = document.getElementById('expYear');
+const curYear = new Date().getFullYear();
+for (let y = curYear + 1; y >= curYear - 2; y--) {
+  const opt = document.createElement('option');
+  opt.value = y;
+  opt.textContent = y;
+  if (y === curYear) opt.selected = true;
+  yearSel.appendChild(opt);
+}
+// Set current month
+document.getElementById('expMonth').value = new Date().getMonth() + 1;
+
+function getParams() {
+  return {
+    project: document.getElementById('expProject').value,
+    year: document.getElementById('expYear').value,
+    month: document.getElementById('expMonth').value,
+  };
+}
+
+async function previewData() {
+  const { project, year, month } = getParams();
+  if (!project) { showToast('Select a project first', 'error'); return; }
+
+  const res = await fetch(`/api/entries/?year=${year}&month_number=${month}&page_size=500`);
+  const data = await res.json();
+  const entries = data.results || data;
+
+  // Filter to entries that have hours for this project
+  let totalHours = 0;
+  let entryCount = 0;
+  const empHours = {};
+
+  for (const e of entries) {
+    const ph = e.project_hours.find(p => p.project == project);
+    if (ph && ph.hours > 0) {
+      totalHours += parseFloat(ph.hours);
+      entryCount++;
+      empHours[e.employee_name] = (empHours[e.employee_name] || 0) + parseFloat(ph.hours);
+    }
+  }
+
+  const monthName = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(month)];
+  const projSel = document.getElementById('expProject');
+  const projName = projSel.options[projSel.selectedIndex].text;
+
+  const box = document.getElementById('previewBox');
+  const content = document.getElementById('previewContent');
+
+  if (entryCount === 0) {
+    content.innerHTML = `<p style="color:var(--muted);font-size:0.875rem">No entries found for this project in ${monthName} ${year}.</p>`;
+  } else {
+    const rows = Object.entries(empHours).map(([name, h]) =>
+      `<div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:0.85rem">${name}</span>
+        <span style="font-family:var(--mono);color:var(--accent)">${h}h</span>
+      </div>`
+    ).join('');
+    content.innerHTML = `
+      <div style="margin-bottom:0.8rem;font-size:0.82rem;color:var(--muted)">${projName} · ${monthName} ${year}</div>
+      ${rows}
+      <div style="display:flex;justify-content:space-between;padding:0.5rem 0;margin-top:0.3rem">
+        <span style="font-weight:600;font-size:0.875rem">Total</span>
+        <span style="font-family:var(--mono);color:var(--green);font-weight:600">${totalHours}h (${entryCount} days)</span>
+      </div>`;
+  }
+  box.style.display = 'block';
+}
+
+function exportExcel() {
+  const { project, year, month } = getParams();
+  if (!project) { showToast('Select a project first', 'error'); return; }
+  window.location.href = `/export/excel/?project=${project}&year=${year}&month=${month}`;
+  showToast('Generating Excel file…');
+}
+</script>
+{% endblock %}

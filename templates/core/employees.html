@@ -1,0 +1,153 @@
+{% extends 'core/base.html' %}
+{% block title %}Employees —Timesheet{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Employees</div>
+    <div class="page-sub">Manage team members</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('addEmpModal')">+ Add Employee</button>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Name</th><th>Status</th><th>Actions</th></tr>
+      </thead>
+      <tbody id="empBody">
+        <tr><td colspan="3" style="text-align:center;color:var(--muted);padding:2rem">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="addEmpModal">
+  <div class="modal">
+    <div class="modal-title">ADD EMPLOYEE</div>
+    <div class="form-group">
+      <label>Full Name *</label>
+      <input type="text" id="addEmpName" placeholder="e.g. Vikas Kaithwas">
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1rem">
+      <button class="btn btn-ghost" onclick="closeModal('addEmpModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addEmployee()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="editEmpModal">
+  <div class="modal">
+    <div class="modal-title">EDIT EMPLOYEE</div>
+    <input type="hidden" id="editEmpId">
+    <div class="form-group">
+      <label>Full Name *</label>
+      <input type="text" id="editEmpName">
+    </div>
+    <div class="form-group">
+      <label>Status</label>
+      <select id="editEmpActive">
+        <option value="true">Active</option>
+        <option value="false">Inactive</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1rem">
+      <button class="btn btn-ghost" onclick="closeModal('editEmpModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="updateEmployee()">Update</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCookie(name) {
+  let v = null;
+  if (document.cookie && document.cookie !== '') {
+    document.cookie.split(';').forEach(c => {
+      c = c.trim();
+      if (c.startsWith(name + '=')) v = decodeURIComponent(c.slice(name.length + 1));
+    });
+  }
+  return v;
+}
+
+async function loadEmployees() {
+  const res = await fetch('/api/employees/?page_size=200');
+  const data = await res.json();
+  const emps = data.results || data;
+  const tbody = document.getElementById('empBody');
+  if (!emps.length) {
+    tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;color:var(--muted);padding:2rem">No employees yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = emps.map(e => `
+    <tr>
+      <td style="font-weight:500">${e.name}</td>
+      <td>${e.is_active
+        ? '<span class="badge badge-green"><span class="dot dot-green"></span>Active</span>'
+        : '<span class="badge badge-gray">Inactive</span>'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick='openEditEmp(${JSON.stringify(e)})'>Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEmployee(${e.id})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openEditEmp(e) {
+  document.getElementById('editEmpId').value = e.id;
+  document.getElementById('editEmpName').value = e.name;
+  document.getElementById('editEmpActive').value = e.is_active ? 'true' : 'false';
+  openModal('editEmpModal');
+}
+
+async function addEmployee() {
+  const name = document.getElementById('addEmpName').value.trim();
+  if (!name) { showToast('Name is required', 'error'); return; }
+  const res = await fetch('/api/employees/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+    body: JSON.stringify({ name })
+  });
+  if (res.ok) {
+    closeModal('addEmpModal');
+    showToast('Employee added!');
+    document.getElementById('addEmpName').value = '';
+    loadEmployees();
+  } else {
+    const err = await res.json();
+    showToast(JSON.stringify(err), 'error');
+  }
+}
+
+async function updateEmployee() {
+  const id = document.getElementById('editEmpId').value;
+  const payload = {
+    name: document.getElementById('editEmpName').value.trim(),
+    is_active: document.getElementById('editEmpActive').value === 'true',
+  };
+  const res = await fetch(`/api/employees/${id}/`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+    body: JSON.stringify(payload)
+  });
+  if (res.ok) { closeModal('editEmpModal'); showToast('Updated!'); loadEmployees(); }
+}
+
+async function deleteEmployee(id) {
+  if (!confirm('Delete this employee?')) return;
+  const res = await fetch(`/api/employees/${id}/`, {
+    method: 'DELETE',
+    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+  });
+  if (res.status === 204) { showToast('Deleted'); loadEmployees(); }
+  else { showToast('Cannot delete — may have existing entries', 'error'); }
+}
+
+loadEmployees();
+</script>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends 'core/base.html' %}
+{% block title %}Dashboard — Timesheet{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Dashboard</div>
+    <div class="page-sub">{{ today|date:"l, d M Y" }}</div>
+  </div>
+  <a href="/timesheet/" class="btn btn-primary">+ Add Entry</a>
+</div>
+
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Active Projects</div>
+    <div class="stat-value accent">{{ total_projects }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Team Members</div>
+    <div class="stat-value">{{ total_employees }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">This Week Hours</div>
+    <div class="stat-value green">{{ week_hours }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Today's Entries</div>
+    <div class="stat-value yellow">{{ today_entries|length }}</div>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+
+  <!-- Today's sheet -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">Today's Entries</div>
+    </div>
+    <div class="table-wrap">
+      {% if today_entries %}
+      <table>
+        <thead>
+          <tr><th>Employee</th><th>Status</th><th>Total Hrs</th><th>Projects</th></tr>
+        </thead>
+        <tbody>
+          {% for entry in today_entries %}
+          <tr>
+            <td>{{ entry.employee.name }}</td>
+            <td>
+              {% if entry.status == 'holiday' %}
+                <span class="badge badge-yellow">Holiday</span>
+              {% elif entry.status == 'leave' %}
+                <span class="badge badge-red">Leave</span>
+              {% else %}
+                <span class="badge badge-green">Present</span>
+              {% endif %}
+            </td>
+            <td><span style="font-family:var(--mono);color:var(--accent)">{{ entry.total_hours }}h</span></td>
+            <td>
+              {% for ph in entry.project_hours.all %}
+                {% if ph.hours > 0 %}
+                  <span class="badge badge-blue" style="margin:1px">{{ ph.project.code }}: {{ ph.hours }}h</span>
+                {% endif %}
+              {% endfor %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p style="color:var(--muted);font-size:0.875rem;padding:1rem 0;">No entries for today yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Monthly project breakdown -->
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title">{{ today|date:"F" }} — Hours by Project</div>
+    </div>
+    <div class="table-wrap">
+      {% if month_project_hours %}
+      <table>
+        <thead><tr><th>Project</th><th>Name</th><th>Hours</th><th>Bar</th></tr></thead>
+        <tbody>
+          {% for row in month_project_hours %}
+          <tr>
+            <td><span class="badge badge-blue">{{ row.project__code }}</span></td>
+            <td style="color:var(--muted);font-size:0.8rem">{{ row.project__name }}</td>
+            <td><span style="font-family:var(--mono)">{{ row.total }}h</span></td>
+            <td style="width:100px">
+              <div style="background:var(--border);border-radius:4px;height:6px;width:100%">
+                <div style="background:var(--accent);border-radius:4px;height:6px;width:{% widthratio row.total month_project_hours.0.total 100 %}%"></div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p style="color:var(--muted);font-size:0.875rem;padding:1rem 0;">No data for this month yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Active Projects list -->
+<div class="card">
+  <div class="card-header">
+    <div class="card-title">Active Projects</div>
+    <a href="/projects/" class="btn btn-ghost btn-sm">Manage</a>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:0.6rem;">
+    {% for project in projects %}
+      <span class="badge badge-blue" style="padding:0.3rem 0.8rem;font-size:0.8rem">
+        <span style="color:var(--accent2);margin-right:4px">{{ project.code }}</span>{{ project.name }}
+      </span>
+    {% empty %}
+      <p style="color:var(--muted);font-size:0.875rem">No active projects. <a href="/projects/" style="color:var(--accent)">Add one →</a></p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,203 @@
+{% extends 'core/base.html' %}
+{% block title %}Projects — Timesheet{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div class="page-title">Projects</div>
+    <div class="page-sub">Manage company projects tracked in timesheet</div>
+  </div>
+  <button class="btn btn-primary" onclick="openModal('addProjectModal')">+ New Project</button>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table id="projectsTable">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Description</th>
+          <th>Status</th>
+          <th>Created</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="projectsBody">
+        <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADD PROJECT MODAL -->
+<div class="modal-overlay" id="addProjectModal">
+  <div class="modal">
+    <div class="modal-title">NEW PROJECT</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Project Code * <span style="color:var(--muted);font-weight:300">(short, e.g. BMK)</span></label>
+        <input type="text" id="addCode" placeholder="BMK" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label>Project Name *</label>
+        <input type="text" id="addName" placeholder="BMK Project">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="addDesc" placeholder="Optional description…"></textarea>
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1.2rem">
+      <button class="btn btn-ghost" onclick="closeModal('addProjectModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addProject()">Create Project</button>
+    </div>
+  </div>
+</div>
+
+<!-- EDIT PROJECT MODAL -->
+<div class="modal-overlay" id="editProjectModal">
+  <div class="modal">
+    <div class="modal-title">EDIT PROJECT</div>
+    <input type="hidden" id="editProjId">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Project Code *</label>
+        <input type="text" id="editCode" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label>Project Name *</label>
+        <input type="text" id="editName">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <textarea id="editDesc"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Status</label>
+      <select id="editActive">
+        <option value="true">Active</option>
+        <option value="false">Inactive</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:0.8rem;justify-content:flex-end;margin-top:1.2rem">
+      <button class="btn btn-ghost" onclick="closeModal('editProjectModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="updateProject()">Update</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function getCookie(name) {
+  let v = null;
+  if (document.cookie && document.cookie !== '') {
+    document.cookie.split(';').forEach(c => {
+      c = c.trim();
+      if (c.startsWith(name + '=')) v = decodeURIComponent(c.slice(name.length + 1));
+    });
+  }
+  return v;
+}
+
+async function loadProjects() {
+  const res = await fetch('/api/projects/?page_size=200');
+  const data = await res.json();
+  const projects = data.results || data;
+  const tbody = document.getElementById('projectsBody');
+  if (!projects.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">No projects yet. Add your first one!</td></tr>';
+    return;
+  }
+  tbody.innerHTML = projects.map(p => `
+    <tr>
+      <td><span class="badge badge-blue" style="font-size:0.85rem">${p.code}</span></td>
+      <td style="font-weight:500">${p.name}</td>
+      <td style="color:var(--muted);font-size:0.82rem;max-width:300px">${p.description || '—'}</td>
+      <td>
+        ${p.is_active
+          ? '<span class="badge badge-green"><span class="dot dot-green"></span>Active</span>'
+          : '<span class="badge badge-gray"><span class="dot dot-red"></span>Inactive</span>'}
+      </td>
+      <td style="font-family:var(--mono);font-size:0.78rem;color:var(--muted)">${p.created_at.split('T')[0]}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-ghost btn-sm" onclick='openEdit(${JSON.stringify(p)})'>Edit</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleProject(${p.id}, ${p.is_active})">${p.is_active ? 'Deactivate' : 'Activate'}</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProject(${p.id})">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openEdit(p) {
+  document.getElementById('editProjId').value = p.id;
+  document.getElementById('editCode').value = p.code;
+  document.getElementById('editName').value = p.name;
+  document.getElementById('editDesc').value = p.description || '';
+  document.getElementById('editActive').value = p.is_active ? 'true' : 'false';
+  openModal('editProjectModal');
+}
+
+async function addProject() {
+  const code = document.getElementById('addCode').value.trim().toUpperCase();
+  const name = document.getElementById('addName').value.trim();
+  const desc = document.getElementById('addDesc').value.trim();
+  if (!code || !name) { showToast('Code and Name are required', 'error'); return; }
+  const res = await fetch('/api/projects/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+    body: JSON.stringify({ code, name, description: desc })
+  });
+  if (res.ok) {
+    closeModal('addProjectModal');
+    showToast('Project created!');
+    document.getElementById('addCode').value = '';
+    document.getElementById('addName').value = '';
+    document.getElementById('addDesc').value = '';
+    loadProjects();
+  } else {
+    const err = await res.json();
+    showToast(JSON.stringify(err), 'error');
+  }
+}
+
+async function updateProject() {
+  const id = document.getElementById('editProjId').value;
+  const payload = {
+    code: document.getElementById('editCode').value.trim().toUpperCase(),
+    name: document.getElementById('editName').value.trim(),
+    description: document.getElementById('editDesc').value.trim(),
+    is_active: document.getElementById('editActive').value === 'true',
+  };
+  const res = await fetch(`/api/projects/${id}/`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+    body: JSON.stringify(payload)
+  });
+  if (res.ok) { closeModal('editProjectModal'); showToast('Updated!'); loadProjects(); }
+  else { const err = await res.json(); showToast(JSON.stringify(err), 'error'); }
+}
+
+async function toggleProject(id, currentlyActive) {
+  const res = await fetch(`/api/projects/${id}/toggle_active/`, {
+    method: 'POST',
+    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+  });
+  if (res.ok) { showToast(currentlyActive ? 'Deactivated' : 'Activated'); loadProjects(); }
+}
+
+async function deleteProject(id) {
+  if (!confirm('Delete this project? This cannot be undone.')) return;
+  const res = await fetch(`/api/projects/${id}/`, {
+    method: 'DELETE',
+    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+  });
+  if (res.status === 204) { showToast('Project deleted'); loadProjects(); }
+  else { showToast('Cannot delete — may have existing entries', 'error'); }
+}
+
+loadProjects();
+</script>
+{% endblock %}
